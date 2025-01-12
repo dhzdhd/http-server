@@ -4,11 +4,12 @@ module Main (main) where
 
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BLC
+import Data.List as List
 import Network.Simple.TCP
 
 host = BS.pack "Host"
 
-get = BS.pack "GET"
+get = BS.pack "\"\\\"GET"
 
 echo = BS.pack "echo"
 
@@ -22,16 +23,17 @@ main = do
   serve (Host host) port $ \(serverSocket, serverAddr) -> do
     BLC.putStrLn $ "Accepted connection from " <> BLC.pack (show serverAddr)
 
-    string <- recv serverSocket 1024
+    res <- recv serverSocket 1024
 
-    case string of
+    case res of
       Just e -> do
-        print e
+        print $ show e
         let segment = getLastRouteSegment $ BS.split ' ' e
+        print segment
 
         case segment of
           Just x -> send serverSocket $ BS.pack $ response x
-          Nothing -> send serverSocket "HTTP/1.1 404 Not Found\r\n\r\n"
+          Nothing -> send serverSocket "HTTP/1.1 200 OK\r\n\r\n"
       Nothing -> send serverSocket "HTTP/1.1 404 Not Found\r\n\r\n"
 
 response :: String -> String
@@ -57,8 +59,7 @@ getPath (_ : xs) = getPath xs
 
 getLastRouteSegment :: [BS.ByteString] -> Maybe String
 getLastRouteSegment [] = Nothing
-getLastRouteSegment (get : path : _) =
+getLastRouteSegment (_ : path : _) = do
   case BS.split '/' path of
-    (x : y : xs) | x == echo -> Just $ BS.unpack y
+    (z : x : y : xs) | x == echo -> Just $ BS.unpack y
     _ -> Nothing
-getLastRouteSegment (_ : xs) = getLastRouteSegment xs
